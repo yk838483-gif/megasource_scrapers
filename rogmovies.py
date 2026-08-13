@@ -15,7 +15,7 @@ import urllib.request
 
 # --- METADATA ---
 TITLE = "RogMovies"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 DESCRIPTION = "RogMovies Scraper for Movies and TV Series"
 
 DEFAULT_MAIN_URL = "https://rogmovies.vip"
@@ -98,6 +98,14 @@ def extract_double_atob(html):
         except Exception:
             pass
     return None
+
+def make_absolute(link, base):
+    """Helper to convert relative URLs to absolute URLs."""
+    if not link:
+        return link
+    if link.startswith("http"):
+        return link
+    return urllib.parse.urljoin(base + "/", link)
 
 def resolve_vcloud(vcloud_url):
     base_domain = f"{urllib.parse.urlparse(vcloud_url).scheme}://{urllib.parse.urlparse(vcloud_url).netloc}"
@@ -214,6 +222,9 @@ def get_streams(media_type, media_id, config=None):
     if not target_post_url:
         return []
 
+    # FIX: Ensure the target URL is absolute
+    target_post_url = make_absolute(target_post_url, MAIN_URL)
+
     status_post, post_html, _, _ = _request(target_post_url)
     if status_post != 200 or not post_html:
         return []
@@ -223,6 +234,9 @@ def get_streams(media_type, media_id, config=None):
     if media_type == "movie":
         btn_links = re.findall(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>\s*<button[^>]*class=["\'][^"\']*dwd-button[^"\']*["\']', post_html, re.I)
         for btn_link in btn_links:
+            # FIX: Ensure button link is absolute
+            btn_link = make_absolute(btn_link, MAIN_URL)
+
             st, page_html, _, _ = _request(btn_link)
             if st == 200 and page_html:
                 m = re.search(r'<a[^>]+href=["\']([^"\']*vcloud[^"\']*)["\']', page_html, re.I)
@@ -235,6 +249,9 @@ def get_streams(media_type, media_id, config=None):
             ep_links = re.findall(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', post_html, re.I)
             for href, text in ep_links:
                 if "V-Cloud" in text or "Download" in text or "G-Direct" in text:
+                    # FIX: Ensure episode link is absolute
+                    href = make_absolute(href, MAIN_URL)
+
                     st, ep_page_html, _, _ = _request(href)
                     if st == 200 and ep_page_html:
                         v_links = re.findall(r'<a[^>]+href=["\']([^"\']*vcloud[^"\']*)["\']', ep_page_html, re.I)
